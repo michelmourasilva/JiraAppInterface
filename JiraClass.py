@@ -1,11 +1,12 @@
 # -*- coding: latin-1 -*-
 from jira import JIRA
-from datetime import timedelta, datetime
+from datetime import timedelta
 import JiraOptions
 from io import StringIO
 import util
 # import psycopg2
 import pandas as pd
+
 
 def jiraconetion():
     """Connection with Jira server"""
@@ -18,29 +19,27 @@ def jiraconetion():
 
 class IssueJira(object):
     """
-    Parâmetros Esperados
-    issue, project, issue_type, summary, opened_date, status, objservation
     """
-    def __init__(self, issue, project=None, issue_type=None, summary=None
-                 , opened_date=None, status='optional', objservation=None):
+    def __init__(self, issue='new', project=None, issue_type=None, summary=None
+                 , opened_date=None, status='optional', observation=None):
         self.issue = issue
         self.project = project
         self.issue_type = issue_type
         self.summary = summary
-        self.opened_date = opened_date
+        self.opened_date = util.returndatetime(opened_date)[3]
         self.status = status
-        self.observation = objservation
-        self.artefact = []
+        self.observation = observation
+        self.artifact = []
 
-    def appendartefact(self, artefact):
+    def append_artifact(self, artifact):
         """
-        Apend string in list named artefact
-        :param artefact: Receive a string value
+        Apend string in list named artifact
+        :param artifact: Receive a string value
         :return: Nothing, it's a void method
         """
-        self.artefact.append(artefact)
+        self.artifact.append(artifact)
 
-    def returnissue(self):
+    def return_issue(self):
         """
         Get values of a issue from Jira Rest API
         If issue not exists in Jira Rest API methods return None for all fields
@@ -61,7 +60,7 @@ class IssueJira(object):
             self.opened_date = None
             self.status = None
 
-    def updatestatus(self):
+    def update_status(self):
         """
         Update a issue status, but is necessary identify all status that a users can use
         Method for check a status
@@ -72,24 +71,19 @@ class IssueJira(object):
                 print(i)
         :return:  Nothing, it's a void method
         """
-        self.returnissue()
+        self.return_issue()
         if self.issue is not None:
             jiraconetion().transition_issue(self.issue, 151)
 
 
 class IssueJiraSupport(IssueJira):
     """
-    Parent class
-    Parâmetros Esperados IssueJira class
-        issue, project, issue_type, summary, opened_date, status, objservation
-    Parâmetros Esperados IssueJiraSupport class
-        requester, complexity, service_order, necessity, necessity_code, priority
     """
     def __init__(self, issue, project=None, issue_type=None,
-                 summary=None, opened_date=None, status='optional', objservation=None
+                 summary=None, opened_date=None, status='optional', observation=None
                  , requester=None, complexity=None, service_order=None, necessity=None
                  , necessity_code=None, priority=None):
-        super().__init__(issue, project, issue_type, summary, opened_date, status, objservation)
+        super().__init__(issue, project, issue_type, summary, opened_date, status, observation)
         self.priority = priority
         self.requester = requester
         self.complexity = complexity
@@ -98,7 +92,7 @@ class IssueJiraSupport(IssueJira):
         self.necessity_code = necessity_code
         self.thematic = []
 
-    def appendthematic(self, thematics):
+    def append_thematic(self, thematics):
         """
         Append a string value into thematic field class
         :param thematics: String value
@@ -108,7 +102,7 @@ class IssueJiraSupport(IssueJira):
             dictionary = {'value': value}
             self.thematic.append(dictionary)
 
-    def returnissue(self):
+    def return_issue(self):
         """
         Get values of a issue from Jira Rest API
         If issue not exists in Jira Rest API methods return None for all fields
@@ -119,15 +113,17 @@ class IssueJiraSupport(IssueJira):
             self.issue_type = issue_fields.fields.issuetype
             self.summary = issue_fields.fields.summary
             self.opened_date = issue_fields.fields.customfield_11221
-            self.status = issue_fields.field.status
-            self.issue = issue_fields.field.issue
-            self.priority = issue_fields.field.customfield_12501
-            self.requester = issue_fields.field.customfield_12504
-            self.complexity = issue_fields.field.customfield_11302
-            self.service_order = issue_fields.field.customfield_12506
-            self.necessity = issue_fields.field.customfield_12512.value
-            self.necessity_code = issue_fields.field.customfield_12512.child.value
+            self.status = issue_fields.fields.status
+            self.priority = issue_fields.fields.customfield_12501
+            self.requester = issue_fields.fields.customfield_12504
+            self.complexity = issue_fields.fields.customfield_11302
+            self.service_order = issue_fields.fields.customfield_12506
+            self.necessity = issue_fields.fields.customfield_12512.value
+            self.necessity_code = issue_fields.fields.customfield_12512.child.value
+            for list_thematic in issue_fields.fields.customfield_12608:
+                self.append_thematic(list_thematic.value)
         except BaseException as e:
+            print(e)
             self.project = None
             self.issue_type = None
             self.summary = None
@@ -141,13 +137,13 @@ class IssueJiraSupport(IssueJira):
             self.necessity = None
             self.necessity_code = None
 
-    def returjsonaddissue(self):
+    def return_json_add_issue(self):
         """
         Return a json dict with all necessary fields filled in for add method.
         If issue name don't exists, return a json dict empty
         :return: Json dict
         """
-        if checkmandatoryfields is True:
+        if check_mandatory_fields(self) is True:
             issue_dict = {
                 'project': self.project,
                 'summary': self.summary,
@@ -174,15 +170,15 @@ class IssueJiraSupportChild(IssueJira):
     Parâmetros Esperados IssueJiraSupportChuild class
          parent, technical_profile, activity, activity_code
     """
-    def __init__(self, issue, project, issue_type, summary, opened_date, status, objservation, parent,
+    def __init__(self, issue, project, issue_type, summary, opened_date, status, observation, parent,
                  technical_profile, activity, activity_code):
-        super().__init__(issue, project, issue_type, summary, opened_date, status, objservation)
+        super().__init__(issue, project, issue_type, summary, opened_date, status, observation)
         self.technical_profile = technical_profile
         self.parent = parent
         self.activity = activity
         self.activity_code = activity_code
 
-    def returnissue(self):
+    def return_issue(self):
         try:
             issue_fields = jiraconetion().issue(self.issue)
             self.issue = issue_fields.field.status
@@ -201,7 +197,7 @@ class IssueJiraSupportChild(IssueJira):
             self.status = None
             self.parent = None
 
-    def returjsonaddissue(self):
+    def return_json_add_issue(self):
         issue_dict = {
             'parent': self.parent,
             'project': self.project,
@@ -223,61 +219,30 @@ class Worklog(object):
         self.date_start = date_start
         self.time_spent_seconds = time_spent_seconds
 
-    def appendworklog(self, author, date_start, time_spent_seconds):
+    def append_worklog(self, author, date_start, time_spent_seconds):
         date_end = date_start + timedelta(hours=time_spent_seconds)
         self.worklog.append([author, date_start, date_end, time_spent_seconds])
 
 
-def checkmandatoryfields(object):
+def check_mandatory_fields(object_jira):
     """
     Check all atributes in class.
     """
     check_return = 0
-    for i in object.__dict__:
-        if getattr(object, i) is not None:
+    for i in object_jira.__dict__:
+        field_value = getattr(object_jira, i)
+        if field_value is not None:
             check_return += 1
-    if object.__dict__.__len__() != check_return:
+        else:
+            print('Parameter {0} is None.'.format(i))
+    if object_jira.__dict__.__len__() != check_return:
+        print('There are a {0} fields in with value None'.format(object_jira.__dict__.__len__()-check_return))
         return False
     else:
         return True
 
 
-def addissue(issue_dict):
-    """
-        #Parent
-        #issueparent = IssueJiraSupportChild(
-        #                                       issue='New'
-        #                                     , priority='Emergencia' #Emergencia, Normal
-        #                                     , requester='jansen'
-        #                                     , complexity='Media' #Baixa, Alta, Media, None
-        #                                     , service_order='OS1'
-        #                                     , necessity='Realizar Roteiro e Teste de Dados'
-        #                                     , necessity_code='BIN016'
-        #                                     , project='PEE'
-        #                                     , objservation = 'OBS'
-        #                                     , issue_type='Sustentação AD'
-        #                                     , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
-        #                                     , summary='sumario')
-        #Child
-        #issueparent = IssueJiraSupportParent(
-        #                                       issue='New'
-        #                                     , priority='Emergencia' #Emergencia, Normal
-        #                                     , requester='jansen'
-        #                                     , complexity='Media' #Baixa, Alta, Media, None
-        #                                     , service_order='OS1'
-        #                                     , necessity='Realizar Roteiro e Teste de Dados'
-        #                                     , necessity_code='BIN016'
-        #                                     , project='PEE'
-        #                                     , issue_type='Sustentação AD'
-        #                                     , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
-        #                                     , summary='sumario')
-
-
-        #issueparent.appendthematic(['ENEM', 'RAIS'])
-        #jsonreturn = issueparent.returjsonaddissue()
-        #print(jsonreturn)
-        #newissue = addissue(jsonreturn)
-    """
+def add_issue(issue_dict):
     return jiraconetion().create_issue(fields=issue_dict)
 
 
@@ -313,21 +278,54 @@ def addissue(issue_dict):
 #newissue = addissue(jsonreturn)
 
 
-issue = IssueJiraSupport(issue='New'
-                       , priority='Emergencia' #Emergencia, Normal
-                        , requester='jansen'
-                        , complexity='Media' #Baixa, Alta, Media, None
-                        , service_order='OS1'
-                        , necessity='Realizar Roteiro e Teste de Dados'
-                        , necessity_code='BIN016'
-                        , project='PEE'
-                        , objservation = 'OBS'
-                        , issue_type='Sustentação AD'
-                        , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
-                        , summary='sumario')
-print(checkmandatoryfields(issue))
+#issue = IssueJiraSupport(issue='New'
+#                       , priority='Emergencia' #Emergencia, Normal
+#                        , requester='jansen'
+#                        , complexity='Media' #Baixa, Alta, Media, None
+#                        , service_order='OS1'
+#                        , necessity='Realizar Roteiro e Teste de Dados'
+#                        , necessity_code='BIN016'
+#                        , project='PEE'
+#                        , objservation = 'OBS'
+#                        , issue_type='Sustentação AD'
+#                        , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
+#                        , summary='sumario')
+#print(checkmandatoryfields(issue))
+"""
+    #Parent
+    #issueparent = IssueJiraSupportChild(
+    #                                       issue='New'
+    #                                     , priority='Emergencia' #Emergencia, Normal
+    #                                     , requester='jansen'
+    #                                     , complexity='Media' #Baixa, Alta, Media, None
+    #                                     , service_order='OS1'
+    #                                     , necessity='Realizar Roteiro e Teste de Dados'
+    #                                     , necessity_code='BIN016'
+    #                                     , project='PEE'
+    #                                     , objservation = 'OBS'
+    #                                     , issue_type='Sustentação AD'
+    #                                     , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
+    #                                     , summary='sumario')
+    #Child
+    #issueparent = IssueJiraSupportParent(
+    #                                       issue='New'
+    #                                     , priority='Emergencia' #Emergencia, Normal
+    #                                     , requester='jansen'
+    #                                     , complexity='Media' #Baixa, Alta, Media, None
+    #                                     , service_order='OS1'
+    #                                     , necessity='Realizar Roteiro e Teste de Dados'
+    #                                     , necessity_code='BIN016'
+    #                                     , project='PEE'
+    #                                     , issue_type='Sustentação AD'
+    #                                     , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
+    #                                     , summary='sumario')
 
 
+    #issueparent.appendthematic(['ENEM', 'RAIS'])
+    #jsonreturn = issueparent.returjsonaddissue()
+    #print(jsonreturn)
+    #newissue = addissue(jsonreturn)
+"""
 """
 def addworklog(issue):
     jiraconetion().add_worklog(user=self.worklog[0]
