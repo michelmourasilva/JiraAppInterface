@@ -170,8 +170,8 @@ class IssueJiraSupportChild(IssueJira):
     Parâmetros Esperados IssueJiraSupportChuild class
          parent, technical_profile, activity, activity_code
     """
-    def __init__(self, issue, project, issue_type, summary, opened_date, status, observation, parent,
-                 technical_profile, activity, activity_code):
+    def __init__(self, issue=None, project=None, issue_type=None, summary=None, opened_date=None, status='optional',
+                 observation=None, parent=None, technical_profile=None, activity=None, activity_code=None):
         super().__init__(issue, project, issue_type, summary, opened_date, status, observation)
         self.technical_profile = technical_profile
         self.parent = parent
@@ -185,48 +185,50 @@ class IssueJiraSupportChild(IssueJira):
             self.project = issue_fields.fields.project
             self.issue_type = issue_fields.fields.issuetype
             self.summary = issue_fields.fields.summary
-            self.opened_date = issue_fields.fields.customfield_11221
-            self.status = issue_fields.field.status
-            self.parent = issue_fields.field.parent
+            self.status = issue_fields.fields.status
+            self.parent = issue_fields.fields.parent
         except Exception:
             self.issue = None
             self.project = None
             self.issue_type = None
             self.summary = None
-            self.opened_date = None
             self.status = None
             self.parent = None
 
     def return_json_add_issue(self):
         issue_dict = {
-            'parent': self.parent,
+            'parent': {'key': self.parent },
             'project': self.project,
             'summary': self.summary,
             'issuetype': self.issue_type,
             'customfield_12505': self.observation,  # observation
-            'customfield_11221': self.opened_date,  # issue open
-            'customfield_12511': self.technical_profile,  # techinical profile
-            'customfield_12513': {'value': self.activity, 'child': {'value': self.activity_code}},  # activity - value=text, child=code
+            'customfield_12511': {'value': self.technical_profile},  # techinical profile
+            'customfield_12513': {'value': self.activity, 'child': {'value': self.activity_code}},  # activity
         }
         return issue_dict
 
 
 class Worklog(object):
-    def __init__(self, issue_name, author, date_start, time_spent_seconds):
-        self.worklog = []
+    """
+
+    """
+    def __init__(self, issue_name, author, date_start, date_end, time_spent_seconds):
         self.issue_name = issue_name
         self.author = author
-        self.date_start = date_start
+        self.date_start = util.returndatetime(date_start)[2]
         self.time_spent_seconds = time_spent_seconds
+        self.date_end = util.returndatetime(date_end)[2]
 
-    def append_worklog(self, author, date_start, time_spent_seconds):
-        date_end = date_start + timedelta(hours=time_spent_seconds)
-        self.worklog.append([author, date_start, date_end, time_spent_seconds])
+    def add_work_log(self):
+        timespent = (self.date_end-self.date_start).seconds
+        jiraconetion().add_worklog(user=self.author, issue=self.issue_name
+                                   , started=util.returndatetime(self.date_start)[3], timeSpentSeconds=timespent)
+
 
 
 def check_mandatory_fields(object_jira):
     """
-    Check all atributes in class.
+    Check all mandatory attributes in class.
     """
     check_return = 0
     for i in object_jira.__dict__:
@@ -246,92 +248,14 @@ def add_issue(issue_dict):
     return jiraconetion().create_issue(fields=issue_dict)
 
 
+def add_attachment(issue_name, file_path):
+    jiraconetion().add_attachment(issue=issue_name, attachment=file_path)
 
-#def addaattachment(issue):
-#    # upload file from `/some/path/attachment.txt`
-#    jiraconetion().add_attachment(issue=issue, attachment='/some/path/attachment.txt')
+    # read and upload a file (note binary mode for opening, it's important):
+    #with open('/some/path/attachment.txt', 'rb') as f:
+    #    jiraconetion().add_attachment(issue=issue, attachment=f)
 #
-#    # read and upload a file (note binary mode for opening, it's important):
-#    with open('/some/path/attachment.txt', 'rb') as f:
-#        jiraconetion().add_attachment(issue=issue, attachment=f)
-#
-#    # attach file from memory (you can skip IO operations). In this case you MUST provide `filename`.
-#    attachment = StringIO.StringIO()
-#    attachment.write()
-#    jiraconetion().add_attachment(issue=issue, attachment=attachment, filename='content.txt')
-
-#issueparent = IssueJiraSupportParent(
-#                                       priority='Emergencia' #Emergencia, Normal
-#                                     , requester='jansen'
-#                                     , complexity='Media' #Baixa, Alta, Media, None
-#                                     , service_order='OS1'
-#                                     , necessity='Realizar Roteiro e Teste de Dados'
-#                                     , necessity_code='BIN016'
-#                                     , project='PEE'
-#                                     , issue_type='Sustentação AD'
-#                                     , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
-#                                     , summary='sumario')
-
-#issueparent.appendthematic(['ENEM', 'RAIS'])
-#jsonreturn = issueparent.returjsonaddparentissue()
-#print(jsonreturn)
-#newissue = addissue(jsonreturn)
-
-
-#issue = IssueJiraSupport(issue='New'
-#                       , priority='Emergencia' #Emergencia, Normal
-#                        , requester='jansen'
-#                        , complexity='Media' #Baixa, Alta, Media, None
-#                        , service_order='OS1'
-#                        , necessity='Realizar Roteiro e Teste de Dados'
-#                        , necessity_code='BIN016'
-#                        , project='PEE'
-#                        , objservation = 'OBS'
-#                        , issue_type='Sustentação AD'
-#                        , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
-#                        , summary='sumario')
-#print(checkmandatoryfields(issue))
-"""
-    #Parent
-    #issueparent = IssueJiraSupportChild(
-    #                                       issue='New'
-    #                                     , priority='Emergencia' #Emergencia, Normal
-    #                                     , requester='jansen'
-    #                                     , complexity='Media' #Baixa, Alta, Media, None
-    #                                     , service_order='OS1'
-    #                                     , necessity='Realizar Roteiro e Teste de Dados'
-    #                                     , necessity_code='BIN016'
-    #                                     , project='PEE'
-    #                                     , objservation = 'OBS'
-    #                                     , issue_type='Sustentação AD'
-    #                                     , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
-    #                                     , summary='sumario')
-    #Child
-    #issueparent = IssueJiraSupportParent(
-    #                                       issue='New'
-    #                                     , priority='Emergencia' #Emergencia, Normal
-    #                                     , requester='jansen'
-    #                                     , complexity='Media' #Baixa, Alta, Media, None
-    #                                     , service_order='OS1'
-    #                                     , necessity='Realizar Roteiro e Teste de Dados'
-    #                                     , necessity_code='BIN016'
-    #                                     , project='PEE'
-    #                                     , issue_type='Sustentação AD'
-    #                                     , opened_date=util.returndatetime('2018-06-05 01:01:01')[3]
-    #                                     , summary='sumario')
-
-
-    #issueparent.appendthematic(['ENEM', 'RAIS'])
-    #jsonreturn = issueparent.returjsonaddissue()
-    #print(jsonreturn)
-    #newissue = addissue(jsonreturn)
-"""
-"""
-def addworklog(issue):
-    jiraconetion().add_worklog(user=self.worklog[0]
-                               , issue=self.name
-                               , started=self.worklog[1]
-                               , timeSpent=self.worklog[3])
-"""
-
-
+    ## attach file from memory (you can skip IO operations). In this case you MUST provide `filename`.
+    #attachment = StringIO.StringIO()
+    #attachment.write()
+    #jiraconetion().add_attachment(issue=issue, attachment=attachment, filename='content.txt')

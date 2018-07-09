@@ -25,15 +25,15 @@ def returndatetime(datestring):
     if datestring is None:
         date_ymd = datetime.today().strftime("%Y%m%d")
         date_ymdhms = datetime.today().strftime("%Y%m%d%H%M%S")
-        date_complete = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+        date_complete = datetime.strptime(datetime.today().strftime("%Y-%m-%d %H:%M:%S"),"%Y-%m-%d %H:%M:%S")
         data_iso9061 = date2iso(datetime.today())
         return date_ymd, date_ymdhms, date_complete, data_iso9061
     else:
         try:
-            datestring = datetime.strptime(datestring,'%Y-%m-%d %H:%M:%S')
+            datestring = datetime.strptime(datestring ,'%Y-%m-%d %H:%M:%S')
             date_ymd = datestring.strftime("%Y%m%d")
             date_ymdhms = datestring.strftime("%Y%m%d%H%M%S")
-            date_complete = datestring.strftime("%Y-%m-%d %H:%M:%S")
+            date_complete = datetime.strptime(datestring.strftime("%Y-%m-%d %H:%M:%S"),"%Y-%m-%d %H:%M:%S")
             data_iso9061 = date2iso(datestring)
             return date_ymd, date_ymdhms, date_complete, data_iso9061
         except Exception as e:
