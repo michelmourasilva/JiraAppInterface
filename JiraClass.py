@@ -1,14 +1,11 @@
 # -*- coding: latin-1 -*-
 from jira import JIRA
-from datetime import timedelta
 import JiraOptions
-from io import StringIO
 import util
 # import psycopg2
-import pandas as pd
 
 
-def jiraconetion():
+def jira_connection():
     """Connection with Jira server"""
     jira_options = {
         'server': JiraOptions.SERVER, 'verify': False
@@ -20,8 +17,8 @@ def jiraconetion():
 class IssueJira(object):
     """
     """
-    def __init__(self, issue='new', project=None, issue_type=None, summary=None
-                 , opened_date=None, status='optional', observation=None):
+    def __init__(self, issue='new', project=None, issue_type=None, summary=None,
+                 opened_date=None, status='optional', observation=None):
         self.issue = issue
         self.project = project
         self.issue_type = issue_type
@@ -45,7 +42,7 @@ class IssueJira(object):
         If issue not exists in Jira Rest API methods return None for all fields
         """
         try:
-            issue_fields = jiraconetion().issue(self.issue)  # Check if issue exists
+            issue_fields = jira_connection().issue(self.issue)  # Check if issue exists
             self.project = issue_fields.fields.project
             self.issue_type = issue_fields.fields.issuetype
             self.summary = issue_fields.fields.summary
@@ -60,29 +57,52 @@ class IssueJira(object):
             self.opened_date = None
             self.status = None
 
-    def update_status(self):
+    def update_status(self, transition):
         """
-        Update a issue status, but is necessary identify all status that a users can use
-        Method for check a status
-            jira = conexaoJira()
-            issue = jira.issue('PEE-27')
-            transitions = jira.transitions(issue)
-            for i in transitions:
-                print(i)
+        Update a issue status
+        :param transition: Possible values (
+        Triagem, Em analise, Em atendimento, Avaliacao solicitante, Finalizado, Pendente solicitante, Em Pausa
+        )
         :return:  Nothing, it's a void method
         """
         self.return_issue()
         if self.issue is not None:
-            jiraconetion().transition_issue(self.issue, 151)
+            if transition in list(self.get_transitions()):
+                jira_connection().transition_issue(self.issue, transition)
+            else:
+                raise Exception('This transitions is not allowed. method: update_status')
+
+    def get_transitions(self):
+        """
+        :return:  all transitions allowed to use in issues
+        """
+        jira = jira_connection()
+        issue = jira.issue(self.issue)
+        transitions = jira.transitions(issue)
+        for i in transitions:
+            yield i['name']
+
+    def get_option_allowed_values(self, field):
+        """
+        :param field: issue field key
+        :return: all allowed values in field
+        """
+        jira = jira_connection()
+        field_json = jira.createmeta(projectKeys=self.project,
+                                     issuetypeNames=self.issue_type,
+                                     expand='projects.issuetypes.fields')['projects'][0]['issuetypes'][0]['fields'][
+            field]['allowedValues']
+        for value in field_json:
+            yield value['value']
 
 
 class IssueJiraSupport(IssueJira):
     """
     """
     def __init__(self, issue, project=None, issue_type=None,
-                 summary=None, opened_date=None, status='optional', observation=None
-                 , requester=None, complexity=None, service_order=None, necessity=None
-                 , necessity_code=None, priority=None):
+                 summary=None, opened_date=None, status='optional', observation=None,
+                 requester=None, complexity=None, service_order=None, necessity=None,
+                 necessity_code=None, priority=None):
         super().__init__(issue, project, issue_type, summary, opened_date, status, observation)
         self.priority = priority
         self.requester = requester
@@ -108,7 +128,7 @@ class IssueJiraSupport(IssueJira):
         If issue not exists in Jira Rest API methods return None for all fields
         """
         try:
-            issue_fields = jiraconetion().issue(self.issue)
+            issue_fields = jira_connection().issue(self.issue)
             self.project = issue_fields.fields.project
             self.issue_type = issue_fields.fields.issuetype
             self.summary = issue_fields.fields.summary
@@ -161,6 +181,9 @@ class IssueJiraSupport(IssueJira):
             issue_dict = {}
         return issue_dict
 
+    def get_necessity(self):
+        pass
+
 
 class IssueJiraSupportChild(IssueJira):
     """
@@ -180,14 +203,14 @@ class IssueJiraSupportChild(IssueJira):
 
     def return_issue(self):
         try:
-            issue_fields = jiraconetion().issue(self.issue)
+            issue_fields = jira_connection().issue(self.issue)
             self.issue = issue_fields.field.status
             self.project = issue_fields.fields.project
             self.issue_type = issue_fields.fields.issuetype
             self.summary = issue_fields.fields.summary
             self.status = issue_fields.fields.status
             self.parent = issue_fields.fields.parent
-        except Exception:
+        except AttributeError:
             self.issue = None
             self.project = None
             self.issue_type = None
@@ -197,21 +220,21 @@ class IssueJiraSupportChild(IssueJira):
 
     def return_json_add_issue(self):
         issue_dict = {
-            'parent': {'key': self.parent },
+            'parent': {'key': self.parent},
             'project': self.project,
             'summary': self.summary,
             'issuetype': self.issue_type,
             'customfield_12505': self.observation,  # observation
-            'customfield_12511': {'value': self.technical_profile},  # techinical profile
+            'customfield_12511': {'value': self.technical_profile},  # technical profile
             'customfield_12513': {'value': self.activity, 'child': {'value': self.activity_code}},  # activity
         }
         return issue_dict
 
+    def get_activity(self):
+        pass
 
-class Worklog(object):
-    """
 
-    """
+class Work_log(object):
     def __init__(self, issue_name, author, date_start, date_end, time_spent_seconds):
         self.issue_name = issue_name
         self.author = author
@@ -220,10 +243,9 @@ class Worklog(object):
         self.date_end = util.returndatetime(date_end)[2]
 
     def add_work_log(self):
-        timespent = (self.date_end-self.date_start).seconds
-        jiraconetion().add_worklog(user=self.author, issue=self.issue_name
-                                   , started=util.returndatetime(self.date_start)[3], timeSpentSeconds=timespent)
-
+        time_spent = (self.date_end-self.date_start).seconds
+        jira_connection().add_worklog(user=self.author, issue=self.issue_name,
+                                      started=util.returndatetime(self.date_start)[3], timeSpentSeconds=time_spent)
 
 
 def check_mandatory_fields(object_jira):
@@ -245,17 +267,8 @@ def check_mandatory_fields(object_jira):
 
 
 def add_issue(issue_dict):
-    return jiraconetion().create_issue(fields=issue_dict)
+    return jira_connection().create_issue(fields=issue_dict)
 
 
 def add_attachment(issue_name, file_path):
-    jiraconetion().add_attachment(issue=issue_name, attachment=file_path)
-
-    # read and upload a file (note binary mode for opening, it's important):
-    #with open('/some/path/attachment.txt', 'rb') as f:
-    #    jiraconetion().add_attachment(issue=issue, attachment=f)
-#
-    ## attach file from memory (you can skip IO operations). In this case you MUST provide `filename`.
-    #attachment = StringIO.StringIO()
-    #attachment.write()
-    #jiraconetion().add_attachment(issue=issue, attachment=attachment, filename='content.txt')
+    jira_connection().add_attachment(issue=issue_name, attachment=file_path)

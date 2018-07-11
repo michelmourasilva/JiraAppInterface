@@ -5,6 +5,7 @@ issues = serverjira.search_issues("project=PEE and issue=PEE-28 order by issue a
 
 for issue in issues:
     issue = serverjira.issue(issue)
-    worklogs = serverjira.worklogs(issue.key)
+    #worklogs = serverjira.worklogs(issue.key)
+    print('teste')
     pass
 
