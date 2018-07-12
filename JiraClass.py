@@ -2,7 +2,6 @@
 from jira import JIRA
 import JiraOptions
 import util
-# import psycopg2
 
 
 def jira_connection():
